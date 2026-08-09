@@ -1,7 +1,46 @@
 import re, subprocess, difflib
 from pathlib import Path
 
-SEQ='mfmfmfmfmfmfmfmmfmfmfmfmfmmfmfmfmfmmfmfmfmfmfmfmfmfmf'
+TURNS=[
+('m',"You ever sit there at night thinking, man... I really need to get my whole life together?"),
+('f',"Tonight?"),('m',"Well... eventually."),
+('f',"Good. Because tonight you're exhausted, overwhelmed, and being a little dramatic."),
+('m',"A little?"),('f',"I'm being supportive."),
+('m',"I think that's where people get stuck. They start thinking about forever. Forever sober. Forever disciplined. Never screwing up again."),
+('f',"Forever is huge. Try today."),('m',"Just today?"),
+('f',"Today is plenty. What do you need to do before you go to sleep without making your life worse?"),
+('m',"Wanting a better life matters."),
+('f',"Absolutely. But your actions eventually need to find out about this wonderful new plan."),
+('m',"So make the call. Go home when you know you should go home. Show up tomorrow. Tell the truth."),
+('f',"Desire gets you pointed in the right direction."),('m',"And your feet still have to move."),
+('m',"One thing I've learned is that things get dangerous when you disappear into your own head."),
+('f',"Especially when your brain starts saying, don't tell anybody. I can handle this myself. How'd that strategy work last time?"),
+('m',"Rude. Accurate, though."),
+('f',"Call somebody before you do the thing you already know you're going to regret. Not afterward."),
+('m',"And sometimes you have to admit you can't control everything."),('f',"He hates this section."),
+('m',"I really do."),('f',"I know."),
+('m',"You don't have to have every spiritual answer figured out. Call it God. Faith. Purpose. Your Higher Power. Something bigger than whatever emotion happens to be screaming the loudest right now."),
+('f',"Because not every feeling deserves a vote."),
+('m',"Ask for enough direction to do the next right thing. That's enough for today."),
+('m',"At the end of the day, take a minute and be honest with yourself. What did I do right? Where was I full of crap? Did I hurt somebody? Is there something I need to apologize for or make right?"),
+('f',"And then fix what you can. Don't turn self-reflection into a three-hour meeting about how terrible you are."),
+('m',"Be accountable."),('f',"Not cruel."),('m',"You're still going to have bad days."),
+('f',"You'll get angry. Tired. Lonely. Somebody will get on your last nerve."),
+('m',"You might even screw something up."),
+('f',"But one bad decision does not require another one. A bad day doesn't need a sequel."),
+('m',"Get honest. Reach out. Correct course. And keep moving."),
+('m',"Eventually something else happens. You stop spending every waking minute thinking about your own problems."),
+('f',"Which is healthy, because that room gets crowded."),
+('m',"You help somebody. You check on somebody. You encourage the person who's a few steps behind you."),
+('f',"And suddenly your worst years aren't completely wasted. They taught you something another person might need."),
+('m',"That's what a comeback usually looks like. Not some giant movie moment. You get through today differently. Then tomorrow. Then another day."),
+('f',"And after a while, you start collecting evidence."),('m',"Evidence of what?"),
+('f',"That maybe you're not that old version of yourself anymore. You're just still used to talking about yourself like you are."),
+('m',"So no. You don't need a whole new life tonight."),('f',"You need some honesty."),
+('m',"Some willingness."),('f',"People you can call."),('m',"Something bigger than yourself."),
+('f',"And one decent decision."),('m',"Today."),
+('f',"Of course, tomorrow morning you're probably going to wake up and feel absolutely zero motivation."),
+('m',"Can I enjoy this victory for like ten seconds?"),('f',"Nope.")]
 
 
 def ts(s):
@@ -43,11 +82,8 @@ def map_turns(cues, expected):
         i=j+1
     return res
 
-final=parse_srt('video2_humanized_dialogue.srt')
-texts=[x[2] for x in final]
-assert len(texts)==len(SEQ)==53
-male=[t for s,t in zip(SEQ,texts) if s=='m']
-female=[t for s,t in zip(SEQ,texts) if s=='f']
+male=[t for s,t in TURNS if s=='m']
+female=[t for s,t in TURNS if s=='f']
 mm=map_turns(parse_srt('male.srt'),male)
 fm=map_turns(parse_srt('female.srt'),female)
 Path('cleanparts').mkdir(exist_ok=True)
@@ -75,7 +111,7 @@ extract('female.mp4',fm,'f')
 subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-t','0.105','-c:a','pcm_s16le','cleanparts/silence.wav'],check=True)
 
 mi=fi=0; entries=[]; clips=[]
-for sp,text in zip(SEQ,texts):
+for sp,text in TURNS:
     if sp=='m': p=f'cleanparts/m{mi:02d}.wav'; mi+=1
     else: p=f'cleanparts/f{fi:02d}.wav'; fi+=1
     clips.append((p,text))
