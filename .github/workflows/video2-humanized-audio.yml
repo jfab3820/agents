@@ -9,10 +9,12 @@ jobs:
   build-audio:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Install FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
 
       - name: Download HeyGen voice renders
         run: |
@@ -20,134 +22,15 @@ jobs:
           curl -L --fail --retry 3 -o male.srt 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/subtitles_98d723d436b54e1692f605f106b74dc2.srt?Expires=1786890393&Signature=npqtU98PKFk5X1ZsjRUB9Hg~WZra6JZur5xXoefRFtp9GwNlRcZNnKpRVvQSlY4JKKokTkCcL2xueToD9T2OQ9rnFsbLIkJg3m8b-GZkGBIM7TsMkUeq7B-1RoAbw75G22v3jdVPkw7fSduXI2sI5wvCaxBUzCxraVKbGNsfhnM3PeZrBTkJXsIsG1qX-bB~QilBSVO3kPTlmOVU-UPtpY4HgmyJs8cNvpGlgXR8k-pSchpUzcN7u-V~fl1M3BwWufuywmVMYGwCY6m5795oodXZjzbYXLzsZ8jyQpYhv22Df2RLn4d6UQNLPSDVXkp990yiwn24c9b2sUP-391JCQ__&Key-Pair-Id=K38HBHX5LX3X2H'
           curl -L --fail --retry 3 -o female.mp4 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/9adb7a7a2dc24411925c5b209c16a283.mp4?Expires=1786890398&Signature=bikaEG0IXlbYiLmz8zE7~r-jQ8snqifjmCdvtE6JdZxkVrZkKzvfYrrLpjf4y0fMhT7i0pS7TBQJlW9-7J8Q73aqSyvujUvmHtZ~DTXq1vBu~MMDvdEP0iCktSWX~sPAqF2j6zv7MyIiQMboSGx1T3km2lp-XKPDTrnoaC1VHscOX6g2vWbr-Toj3kuMku9C33T-1UvSXDGwXfTO5G59xes8skwLuFNV3xniVfYySlBmzRDJRIe6518p242mTb8~7xfoe-HWX-ODpEN4cxSrUAyYrfdSm3kjD8sn984M3GTMuY~0L2NmIGp4OdGqaC~OXqaLYlskK93GpajvKa0J-g__&Key-Pair-Id=K38HBHX5LX3X2H'
           curl -L --fail --retry 3 -o female.srt 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/subtitles_9adb7a7a2dc24411925c5b209c16a283.srt?Expires=1786890413&Signature=Yk~UMOP5SEn2TYq7WC3PTXqoK8CAwuXAJ3xU3pPh61xqaj3eQqJx6yH4NbkM8prBUWSwjNO5HD5cd~LP7YgbaymC0JovPI-AEyr5L~6vpD-ymXkvvAL1cszcj6gnghqug5th0tgZIttrYnBd4q4xqctoJzbOsN-ghZxy1Jcm9sZMqgBBSixNBiuGmCQhmcF5NBUwXNawC2uc3~P6VrmQ0cmGBO7c4za~iWpjG-CEIf5gMO-fjDNhcXdCbRVKDod7b6xRC915ywCETpzGJcEQ6Wvq-GgzXhizvT7jSULbL9~G9PQYV-FByV2ZotiFkNglMOC~MoWnutRlkRUZWDriQg__&Key-Pair-Id=K38HBHX5LX3X2H'
-          ffmpeg -y -i male.mp4 -vn -ac 1 -ar 48000 -c:a pcm_s16le male.wav
-          ffmpeg -y -i female.mp4 -vn -ac 1 -ar 48000 -c:a pcm_s16le female.wav
 
-      - name: Assemble alternating dialogue
-        shell: bash
-        run: |
-          cat > assemble.py <<'PY'
-          import re, wave, struct, difflib
-
-          TURNS = [
-          ('m',"You ever sit there at night thinking, man... I really need to get my whole life together?"),
-          ('f',"Tonight?"),('m',"Well... eventually."),
-          ('f',"Good. Because tonight you're exhausted, overwhelmed, and being a little dramatic."),
-          ('m',"A little?"),('f',"I'm being supportive."),
-          ('m',"I think that's where people get stuck. They start thinking about forever. Forever sober. Forever disciplined. Never screwing up again."),
-          ('f',"Forever is huge. Try today."),('m',"Just today?"),
-          ('f',"Today is plenty. What do you need to do before you go to sleep without making your life worse?"),
-          ('m',"Wanting a better life matters."),
-          ('f',"Absolutely. But your actions eventually need to find out about this wonderful new plan."),
-          ('m',"So make the call. Go home when you know you should go home. Show up tomorrow. Tell the truth."),
-          ('f',"Desire gets you pointed in the right direction."),('m',"And your feet still have to move."),
-          ('m',"One thing I've learned is that things get dangerous when you disappear into your own head."),
-          ('f',"Especially when your brain starts saying, don't tell anybody. I can handle this myself. How'd that strategy work last time?"),
-          ('m',"Rude. Accurate, though."),
-          ('f',"Call somebody before you do the thing you already know you're going to regret. Not afterward."),
-          ('m',"And sometimes you have to admit you can't control everything."),('f',"He hates this section."),
-          ('m',"I really do."),('f',"I know."),
-          ('m',"You don't have to have every spiritual answer figured out. Call it God. Faith. Purpose. Your Higher Power. Something bigger than whatever emotion happens to be screaming the loudest right now."),
-          ('f',"Because not every feeling deserves a vote."),
-          ('m',"Ask for enough direction to do the next right thing. That's enough for today."),
-          ('m',"At the end of the day, take a minute and be honest with yourself. What did I do right? Where was I full of crap? Did I hurt somebody? Is there something I need to apologize for or make right?"),
-          ('f',"And then fix what you can. Don't turn self-reflection into a three-hour meeting about how terrible you are."),
-          ('m',"Be accountable."),('f',"Not cruel."),('m',"You're still going to have bad days."),
-          ('f',"You'll get angry. Tired. Lonely. Somebody will get on your last nerve."),
-          ('m',"You might even screw something up."),
-          ('f',"But one bad decision does not require another one. A bad day doesn't need a sequel."),
-          ('m',"Get honest. Reach out. Correct course. And keep moving."),
-          ('m',"Eventually something else happens. You stop spending every waking minute thinking about your own problems."),
-          ('f',"Which is healthy, because that room gets crowded."),
-          ('m',"You help somebody. You check on somebody. You encourage the person who's a few steps behind you."),
-          ('f',"And suddenly your worst years aren't completely wasted. They taught you something another person might need."),
-          ('m',"That's what a comeback usually looks like. Not some giant movie moment. You get through today differently. Then tomorrow. Then another day."),
-          ('f',"And after a while, you start collecting evidence."),('m',"Evidence of what?"),
-          ('f',"That maybe you're not that old version of yourself anymore. You're just still used to talking about yourself like you are."),
-          ('m',"So no. You don't need a whole new life tonight."),('f',"You need some honesty."),
-          ('m',"Some willingness."),('f',"People you can call."),('m',"Something bigger than yourself."),
-          ('f',"And one decent decision."),('m',"Today."),
-          ('f',"Of course, tomorrow morning you're probably going to wake up and feel absolutely zero motivation."),
-          ('m',"Can I enjoy this victory for like ten seconds?"),('f',"Nope.")]
-
-          def norm_tokens(s):
-              s=s.lower().replace('’',"'")
-              return re.findall(r"[a-z0-9]+", s)
-
-          def ts(x):
-              h,m,rest=x.split(':'); sec,ms=rest.split(',')
-              return int(h)*3600+int(m)*60+int(sec)+int(ms)/1000
-
-          def parse_srt(path):
-              raw=open(path,encoding='utf8').read().strip()
-              cues=[]
-              for block in re.split(r'\n\s*\n',raw):
-                  lines=block.splitlines()
-                  ti=next((i for i,l in enumerate(lines) if '-->' in l),None)
-                  if ti is None: continue
-                  a,b=[z.strip() for z in lines[ti].split('-->')]
-                  text=' '.join(lines[ti+1:])
-                  toks=norm_tokens(text)
-                  if not toks: continue
-                  st,en=ts(a),ts(b)
-                  dur=max(.001,en-st)
-                  for j,t in enumerate(toks):
-                      ws=st+dur*j/len(toks); we=st+dur*(j+1)/len(toks)
-                      cues.append((t,ws,we))
-              return cues
-
-          def ranges_for_speaker(sp,srt_path):
-              turns=[txt for who,txt in TURNS if who==sp]
-              target=[]; ranges=[]
-              for txt in turns:
-                  a=len(target); target += norm_tokens(txt); b=len(target); ranges.append((a,b))
-              src=parse_srt(srt_path); src_t=[x[0] for x in src]
-              sm=difflib.SequenceMatcher(a=target,b=src_t,autojunk=False)
-              mapping={}
-              for tag,a1,a2,b1,b2 in sm.get_opcodes():
-                  if tag=='equal':
-                      for k in range(a2-a1): mapping[a1+k]=b1+k
-                  elif tag in ('replace','insert') and a2>a1 and b2>b1:
-                      for k in range(a1,a2):
-                          frac=(k-a1)/max(1,a2-a1-1)
-                          mapping[k]=min(b2-1,b1+round(frac*max(0,b2-b1-1)))
-              out=[]; last=0
-              for a,b in ranges:
-                  mapped=[mapping[i] for i in range(a,b) if i in mapping]
-                  if not mapped:
-                      raise RuntimeError(f'No alignment for {sp} turn {a}:{b}')
-                  i0,i1=min(mapped),max(mapped)
-                  st=max(0,src[i0][1]-.06); en=src[i1][2]+.08
-                  if st < last: st=last
-                  if en <= st: en=st+.15
-                  out.append((st,en)); last=en
-              print(sp,'alignment',sm.ratio(),'turns',len(out))
-              return out
-
-          def readwav(path):
-              w=wave.open(path,'rb'); params=w.getparams(); data=w.readframes(w.getnframes()); w.close()
-              return params,data
-          pm,dm=readwav('male.wav'); pf,df=readwav('female.wav')
-          assert pm.nchannels==pf.nchannels==1 and pm.sampwidth==pf.sampwidth==2 and pm.framerate==pf.framerate==48000
-          mr=ranges_for_speaker('m','male.srt'); fr=ranges_for_speaker('f','female.srt')
-          mi=fi=0; rate=48000; framebytes=2; silence=struct.pack('<h',0)*int(rate*.20)
-          pieces=[]
-          for sp,txt in TURNS:
-              if sp=='m': st,en=mr[mi]; mi+=1; data=dm
-              else: st,en=fr[fi]; fi+=1; data=df
-              a=int(st*rate)*framebytes; b=int(en*rate)*framebytes
-              pieces.append(data[a:b]); pieces.append(silence)
-          out=b''.join(pieces)
-          w=wave.open('dialogue_raw.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(out); w.close()
-          print('raw duration',len(out)/framebytes/rate)
-          PY
-          python3 assemble.py
-          ffmpeg -y -i dialogue_raw.wav -af "loudnorm=I=-16:LRA=7:TP=-1.5" -ar 48000 -ac 2 -c:a aac -b:a 192k Video2_HUMANIZED_DIALOGUE.m4a
-          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 Video2_HUMANIZED_DIALOGUE.m4a
+      - name: Assemble dialogue and exact captions
+        run: python3 video2_render/build_audio.py
 
       - name: Upload dialogue artifact
         uses: actions/upload-artifact@v4
         with:
-          name: video2-humanized-dialogue
-          path: Video2_HUMANIZED_DIALOGUE.m4a
+          name: video2-humanized-dialogue-timed
+          path: |
+            video2_humanized_dialogue.m4a
+            video2_humanized_dialogue.srt
           if-no-files-found: error
