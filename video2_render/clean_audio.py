@@ -1,4 +1,4 @@
-import re, subprocess, difflib
+import re, subprocess, difflib, wave, math, array
 from pathlib import Path
 
 TURNS=[
@@ -49,8 +49,7 @@ def ts(s):
 
 
 def parse_srt(path):
-    txt=Path(path).read_text(errors='ignore').strip()
-    out=[]
+    txt=Path(path).read_text(errors='ignore').strip(); out=[]
     for b in re.split(r'\n\s*\n',txt):
         lines=[x.strip() for x in b.splitlines() if x.strip()]
         ti=next((i for i,l in enumerate(lines) if '-->' in l),None)
@@ -77,15 +76,12 @@ def map_turns(cues, expected):
             if cw>tw*1.7+5: break
         if best is None: raise RuntimeError('No cue match: '+turn)
         j=best[1]
-        # Subtitle timestamps can sit inside consonant attacks/tails. Take generous handles.
-        res.append((max(0,cues[i][0]-0.24), cues[j][1]+0.28))
+        res.append((max(0,cues[i][0]-0.35), cues[j][1]+0.40))
         i=j+1
     return res
 
-male=[t for s,t in TURNS if s=='m']
-female=[t for s,t in TURNS if s=='f']
-mm=map_turns(parse_srt('male.srt'),male)
-fm=map_turns(parse_srt('female.srt'),female)
+male=[t for s,t in TURNS if s=='m']; female=[t for s,t in TURNS if s=='f']
+mm=map_turns(parse_srt('male.srt'),male); fm=map_turns(parse_srt('female.srt'),female)
 Path('cleanparts').mkdir(exist_ok=True)
 
 
@@ -93,29 +89,42 @@ def dur(path):
     return float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',path]))
 
 
-def extract(src, spans, prefix):
+def energy_trim_wav(src,dst,pre=0.080,post=0.110):
+    w=wave.open(src,'rb'); ch=w.getnchannels(); sw=w.getsampwidth(); rate=w.getframerate(); n=w.getnframes(); raw=w.readframes(n); w.close()
+    assert sw==2
+    vals=array.array('h'); vals.frombytes(raw)
+    win=max(1,int(rate*0.010)); rms=[]
+    for f0 in range(0,n,win):
+        f1=min(n,f0+win); ss=0; count=0
+        for i in range(f0*ch,f1*ch):
+            v=vals[i]; ss+=v*v; count+=1
+        rms.append(math.sqrt(ss/max(1,count)))
+    peak=max(rms) if rms else 0
+    threshold=max(18.0,peak*0.008)
+    active=[i for i,v in enumerate(rms) if v>=threshold]
+    if active:
+        a=max(0,active[0]*win-int(pre*rate)); b=min(n,(active[-1]+1)*win+int(post*rate))
+    else:
+        a=0; b=n
+    out=vals[a*ch:b*ch]
+    ww=wave.open(dst,'wb'); ww.setnchannels(ch); ww.setsampwidth(sw); ww.setframerate(rate); ww.writeframes(out.tobytes()); ww.close()
+
+
+def extract(src,spans,prefix):
     for n,(a,z) in enumerate(spans):
-        raw=f'cleanparts/{prefix}{n:02d}_raw.wav'
-        out=f'cleanparts/{prefix}{n:02d}.wav'
+        raw=f'cleanparts/{prefix}{n:02d}_raw.wav'; trim=f'cleanparts/{prefix}{n:02d}_trim.wav'; out=f'cleanparts/{prefix}{n:02d}.wav'
         subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(a),'-to',str(z),'-i',src,'-vn','-ac','2','-ar','48000','-c:a','pcm_s16le',raw],check=True)
-        # Trim only exterior dead air while preserving a safety cushion around speech.
-        trimmed=f'cleanparts/{prefix}{n:02d}_trim.wav'
-        filt='silenceremove=start_periods=1:start_duration=0.01:start_threshold=-46dB:start_silence=0.075:stop_periods=1:stop_duration=0.01:stop_threshold=-46dB:stop_silence=0.095'
-        subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',raw,'-af',filt,'-ac','2','-ar','48000','-c:a','pcm_s16le',trimmed],check=True)
-        d=dur(trimmed)
-        fadeout=max(0,d-0.012)
-        subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',trimmed,'-af',f'afade=t=in:st=0:d=0.008,afade=t=out:st={fadeout}:d=0.012','-ac','2','-ar','48000','-c:a','pcm_s16le',out],check=True)
+        energy_trim_wav(raw,trim)
+        d=dur(trim); fadeout=max(0,d-0.010)
+        subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',trim,'-af',f'afade=t=in:st=0:d=0.006,afade=t=out:st={fadeout}:d=0.010','-ac','2','-ar','48000','-c:a','pcm_s16le',out],check=True)
 
-extract('male.mp4',mm,'m')
-extract('female.mp4',fm,'f')
-subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-t','0.105','-c:a','pcm_s16le','cleanparts/silence.wav'],check=True)
-
+extract('male.mp4',mm,'m'); extract('female.mp4',fm,'f')
+subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-t','0.095','-c:a','pcm_s16le','cleanparts/silence.wav'],check=True)
 mi=fi=0; entries=[]; clips=[]
 for sp,text in TURNS:
     if sp=='m': p=f'cleanparts/m{mi:02d}.wav'; mi+=1
     else: p=f'cleanparts/f{fi:02d}.wav'; fi+=1
-    clips.append((p,text))
-    entries += [f"file '../{p}'", "file 'silence.wav'"]
+    clips.append((p,text)); entries += [f"file '../{p}'","file 'silence.wav'"]
 Path('cleanparts/concat.txt').write_text('\n'.join(entries))
 subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','concat','-safe','0','-i','cleanparts/concat.txt','-af','loudnorm=I=-16:LRA=9:TP=-1.5','-c:a','aac','-b:a','192k','-ar','48000','-ac','2','video2_humanized_dialogue_CLEAN.m4a'],check=True)
 
@@ -127,8 +136,6 @@ def fmt(t):
 
 current=0.0; caps=[]
 for k,(p,text) in enumerate(clips,1):
-    d=dur(p)
-    caps.append(f'{k}\n{fmt(current)} --> {fmt(current+d)}\n{text}\n')
-    current+=d+0.105
+    d=dur(p); caps.append(f'{k}\n{fmt(current)} --> {fmt(current+d)}\n{text}\n'); current+=d+0.095
 Path('video2_humanized_dialogue_CLEAN.srt').write_text('\n'.join(caps))
 print('CLEAN DURATION',current)
