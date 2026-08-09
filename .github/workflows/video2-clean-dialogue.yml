@@ -25,11 +25,11 @@ jobs:
           cp video2_render/video2_humanized_dialogue.srt . || true
           test -f video2_humanized_dialogue.srt || { echo 'Missing timing SRT'; exit 1; }
       - name: Build cleaned cuts
-        run: python3 video2_render/clean_audio.py
+        run: python3 video2_render/clean_audio_v2.py
       - name: Upload cleaned dialogue
         uses: actions/upload-artifact@v4
         with:
-          name: video2-clean-dialogue
+          name: video2-clean-dialogue-v2
           path: |
             video2_humanized_dialogue_CLEAN.m4a
             video2_humanized_dialogue_CLEAN.srt
