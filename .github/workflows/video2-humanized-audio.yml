@@ -9,6 +9,11 @@ jobs:
   build-audio:
     runs-on: ubuntu-latest
     steps:
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Download HeyGen voice renders
         run: |
           curl -L --fail --retry 3 -o male.mp4 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/98d723d436b54e1692f605f106b74dc2.mp4?Expires=1786890377&Signature=lr3LQnL7C6G2TNY77NXaM60Q-Lq4osn-4P0WiLCqYm9bZXuPv-ZdEsciK0XDCxQkJU9tJ~bsBJAIOhc04UQA3PBBUHk9Lf0MCt2UnlAYp1lnsnBL1QeHMgq-cj9qdS85vMX1uxlsVcKnb-KS4gobUuA~92xo~aq-R7XIg8L-M3KzptdFUSpFsxIbjZI5xqmtMaCnPVlqP8VTzaoX738FzCt0ObpmTeQVm3rhwXoN-5iPEolvf0s5DNvetBnLoysgcdRH~IuCG8D5WhO2qAjlz1zFwaBfUA7PTwI~Fwkaw8sIBMd72VXYSVVwh3p50klAWEx-FzHyIFMjRgM4G4s6lA__&Key-Pair-Id=K38HBHX5LX3X2H'
@@ -87,7 +92,6 @@ jobs:
                   st,en=ts(a),ts(b)
                   dur=max(.001,en-st)
                   for j,t in enumerate(toks):
-                      # approximate word timing within each subtitle cue
                       ws=st+dur*j/len(toks); we=st+dur*(j+1)/len(toks)
                       cues.append((t,ws,we))
               return cues
@@ -128,14 +132,11 @@ jobs:
           mr=ranges_for_speaker('m','male.srt'); fr=ranges_for_speaker('f','female.srt')
           mi=fi=0; rate=48000; framebytes=2; silence=struct.pack('<h',0)*int(rate*.20)
           pieces=[]
-          scene_boundaries=[]; elapsed=0.0
-          for idx,(sp,txt) in enumerate(TURNS):
+          for sp,txt in TURNS:
               if sp=='m': st,en=mr[mi]; mi+=1; data=dm
               else: st,en=fr[fi]; fi+=1; data=df
               a=int(st*rate)*framebytes; b=int(en*rate)*framebytes
-              clip=data[a:b]
-              pieces.append(clip); elapsed += len(clip)/framebytes/rate
-              pieces.append(silence); elapsed += .20
+              pieces.append(data[a:b]); pieces.append(silence)
           out=b''.join(pieces)
           w=wave.open('dialogue_raw.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(out); w.close()
           print('raw duration',len(out)/framebytes/rate)
