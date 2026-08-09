@@ -1,0 +1,34 @@
+name: Video 2 Humanized Clean Audio
+
+on:
+  push:
+    branches: [video2-humanized-render]
+  workflow_dispatch:
+
+jobs:
+  clean-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Download HeyGen source tracks
+        run: |
+          curl -L --fail --retry 3 -o male.mp4 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/98d723d436b54e1692f605f106b74dc2.mp4?Expires=1786890377&Signature=lr3LQnL7C6G2TNY77NXaM60Q-Lq4osn-4P0WiLCqYm9bZXuPv-ZdEsciK0XDCxQkJU9tJ~bsBJAIOhc04UQA3PBBUHk9Lf0MCt2UnlAYp1lnsnBL1QeHMgq-cj9qdS85vMX1uxlsVcKnb-KS4gobUuA~92xo~aq-R7XIg8L-M3KzptdFUSpFsxIbjZI5xqmtMaCnPVlqP8VTzaoX738FzCt0ObpmTeQVm3rhwXoN-5iPEolvf0s5DNvetBnLoysgcdRH~IuCG8D5WhO2qAjlz1zFwaBfUA7PTwI~Fwkaw8sIBMd72VXYSVVwh3p50klAWEx-FzHyIFMjRgM4G4s6lA__&Key-Pair-Id=K38HBHX5LX3X2H'
+          curl -L --fail --retry 3 -o male.srt 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/subtitles_98d723d436b54e1692f605f106b74dc2.srt?Expires=1786890393&Signature=npqtU98PKFk5X1ZsjRUB9Hg~WZra6JZur5xXoefRFtp9GwNlRcZNnKpRVvQSlY4JKKokTkCcL2xueToD9T2OQ9rnFsbLIkJg3m8b-GZkGBIM7TsMkUeq7B-1RoAbw75G22v3jdVPkw7fSduXI2sI5wvCaxBUzCxraVKbGNsfhnM3PeZrBTkJXsIsG1qX-bB~QilBSVO3kPTlmOVU-UPtpY4HgmyJs8cNvpGlgXR8k-pSchpUzcN7u-V~fl1M3BwWufuywmVMYGwCY6m5795oodXZjzbYXLzsZ8jyQpYhv22Df2RLn4d6UQNLPSDVXkp990yiwn24c9b2sUP-391JCQ__&Key-Pair-Id=K38HBHX5LX3X2H'
+          curl -L --fail --retry 3 -o female.mp4 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/9adb7a7a2dc24411925c5b209c16a283.mp4?Expires=1786890398&Signature=bikaEG0IXlbYiLmz8zE7~r-jQ8snqifjmCdvtE6JdZxkVrZkKzvfYrrLpjf4y0fMhT7i0pS7TBQJlW9-7J8Q73aqSyvujUvmHtZ~DTXq1vBu~MMDvdEP0iCktSWX~sPAqF2j6zv7MyIiQMboSGx1T3km2lp-XKPDTrnoaC1VHscOX6g2vWbr-Toj3kuMku9C33T-1UvSXDGwXfTO5G59xes8skwLuFNV3xniVfYySlBmzRDJRIe6518p242mTb8~7xfoe-HWX-ODpEN4cxSrUAyYrfdSm3kjD8sn984M3GTMuY~0L2NmIGp4OdGqaC~OXqaLYlskK93GpajvKa0J-g__&Key-Pair-Id=K38HBHX5LX3X2H'
+          curl -L --fail --retry 3 -o female.srt 'https://files2.heygen.ai/aws_pacific/avatar_tmp/458a9187568e4b77bd53fd6b853bef38/subtitles_9adb7a7a2dc24411925c5b209c16a283.srt?Expires=1786890413&Signature=Yk~UMOP5SEn2TYq7WC3PTXqoK8CAwuXAJ3xU3pPh61xqaj3eQqJx6yH4NbkM8prBUWSwjNO5HD5cd~LP7YgbaymC0JovPI-AEyr5L~6vpD-ymXkvvAL1cszcj6gnghqug5th0tgZIttrYnBd4q4xqctoJzbOsN-ghZxy1Jcm9sZMqgBBSixNBiuGmCQhmcF5NBUwXNawC2uc3~P6VrmQ0cmGBO7c4za~iWpjG-CEIf5gMO-fjDNhcXdCbRVKDod7b6xRC915ywCETpzGJcEQ6Wvq-GgzXhizvT7jSULbL9~G9PQYV-FByV2ZotiFkNglMOC~MoWnutRlkRUZWDriQg__&Key-Pair-Id=K38HBHX5LX3X2H'
+          cp video2_render/video2_humanized_dialogue.srt ./video2_humanized_dialogue.srt || true
+      - name: Build clean dialogue
+        run: |
+          python3 video2_render/clean_audio.py
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 video2_humanized_dialogue_CLEAN.m4a
+      - name: Upload cleaned dialogue
+        uses: actions/upload-artifact@v4
+        with:
+          name: video2-humanized-dialogue-clean
+          path: |
+            video2_humanized_dialogue_CLEAN.m4a
+            video2_humanized_dialogue_CLEAN.srt
